@@ -131,16 +131,17 @@ else:
             )
             st.stop()
 
-        # --- detect language and update state ---
+        # --- detect language and thread today into state ---
         lang = detect_language(user_input)
+        today = str(date.today())
         st.session_state.booking_state["language"] = lang
+        # Thread today into state so apply_updates uses the same date as extract()
+        st.session_state.booking_state["_today"] = today
 
         # --- show user message ---
         with st.chat_message("user"):
             _render_reply(user_input, lang)
         st.session_state.messages.append({"role": "user", "content": user_input, "lang": lang})
-
-        today = str(date.today())
 
         # --- call LLM + run dialogue logic ---
         with st.chat_message("assistant"):

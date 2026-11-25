@@ -28,3 +28,6 @@ CLAUDE.md
 course_materials/
 .claude_work/
 .claude/
+
+# Test artifacts
+data/bookings_test_tmp.json

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import csv
 import os
+import subprocess
 import sys
 import time
 
@@ -20,27 +21,53 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from dotenv import load_dotenv
 load_dotenv(dotenv_path=".env")
 
+import shutil
+from pathlib import Path
+
 from src.extractor import ExtractionError, extract
 from src.llm_client import LLMError
 from src.policy import detect_language, next_action
 from src.state import apply_updates, new_state
+import src.bookings as _bk
 
 TODAY = "2026-11-25"
 CSV_PATH = "evaluation/test_results.csv"
 os.makedirs("evaluation", exist_ok=True)
+
+# ── bookings file isolation ───────────────────────────────────────────────────
+# Redirect src.bookings to a temporary copy so save_booking() does not write
+# to the real data/bookings.json. The real file is restored in the finally block.
+
+_REAL_BOOKINGS = Path("data/bookings.json")
+_TMP_BOOKINGS  = Path("data/bookings_test_tmp.json")
+
+
+def _setup_tmp_bookings() -> None:
+    shutil.copy(_REAL_BOOKINGS, _TMP_BOOKINGS)
+    _bk._BOOKINGS_FILE = _TMP_BOOKINGS
+
+
+def _teardown_tmp_bookings() -> None:
+    _bk._BOOKINGS_FILE = _REAL_BOOKINGS
+    _TMP_BOOKINGS.unlink(missing_ok=True)
+
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
 def turn(state: dict, message: str) -> tuple[dict, dict, list[str], dict]:
     """
     Run one dialogue turn.
+    - Sets state["_today"] = TODAY so validators use the fixed test date,
+      not the computer's real clock. This keeps tests valid after Dec 7.
     Returns (updated_state, extraction, errors, action).
     Raises LLMError or ExtractionError on failure.
     """
     lang = detect_language(message)
     state["language"] = lang
+    state["_today"] = TODAY          # pin today for validators
     extraction = extract(message, state, TODAY, prompt_version="v2")
     new_st, errors = apply_updates(state, extraction["updates"])
+    new_st["_today"] = TODAY         # carry forward in updated state
     action = next_action(new_st, extraction["intent"], errors)
     return new_st, extraction, errors, action
 
@@ -347,18 +374,32 @@ if __name__ == "__main__":
     print("=== Mawid T1–T5 Test Run ===")
     print(f"Today: {TODAY}  |  CSV: {CSV_PATH}\n")
 
-    for test_fn in [test_t1, test_t2, test_t3, test_t4, test_t5]:
-        try:
-            test_fn()
-        except (LLMError, ExtractionError) as e:
-            print(f"  [ERROR] {type(e).__name__}: {e}")
-            rows.append({"id": test_fn.__name__, "name": "ERROR", "turn": "?",
-                         "input": "", "expected": "", "actual": str(e),
-                         "pass": "FAIL", "reason": type(e).__name__})
+    _setup_tmp_bookings()
+    try:
+        for test_fn in [test_t1, test_t2, test_t3, test_t4, test_t5]:
+            try:
+                test_fn()
+            except (LLMError, ExtractionError) as e:
+                print(f"  [ERROR] {type(e).__name__}: {e}")
+                rows.append({"id": test_fn.__name__, "name": "ERROR", "turn": "?",
+                             "input": "", "expected": "", "actual": str(e),
+                             "pass": "FAIL", "reason": type(e).__name__})
 
-    save_csv()
+        save_csv()
+    finally:
+        _teardown_tmp_bookings()
 
     passed = sum(1 for r in rows if r["pass"] == "PASS")
     failed = sum(1 for r in rows if r["pass"] == "FAIL")
     print(f"\n=== Summary: {passed} PASS / {failed} FAIL out of {len(rows)} checks ===")
     print(f"Total elapsed: {time.monotonic() - total_start:.1f} s")
+
+    # Verify data/bookings.json was not modified by the test run
+    result = subprocess.run(
+        ["git", "status", "--porcelain", "data/bookings.json"],
+        capture_output=True, text=True
+    )
+    if result.stdout.strip():
+        print(f"\n[WARNING] data/bookings.json was modified! git says: {result.stdout.strip()}")
+    else:
+        print("\n[OK] data/bookings.json is unchanged.")

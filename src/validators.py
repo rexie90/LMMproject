@@ -51,7 +51,11 @@ def validate_slot(slot_name: str, value: str, state: dict) -> str | None:
             d = date.fromisoformat(value)
         except ValueError:
             return f"Date '{value}' is not a valid date (expected YYYY-MM-DD)."
-        if d <= date.today():
+        # Use _today from state if provided (keeps tests deterministic);
+        # fall back to the real system date in production.
+        _today_str = state.get("_today") or str(date.today())
+        _today = date.fromisoformat(_today_str)
+        if d <= _today:
             return f"Date {value} is in the past. Please choose a future date."
         instructor_name = state.get("instructor")
         if instructor_name:

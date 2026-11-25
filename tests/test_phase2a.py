@@ -42,6 +42,7 @@ check("step starts as 'greeting'", s["step"] == "greeting")
 # ── Test 3: apply_updates — valid values ─────────────────────────────────────
 print("\n3. apply_updates — valid values")
 s = new_state()
+s["_today"] = "2026-11-25"   # pin today so the date check is deterministic
 updates = {
     "instructor":   "Dr. Sara (sample)",
     "date":         "2026-12-06",   # Sunday — Dr. Sara has Sunday hours

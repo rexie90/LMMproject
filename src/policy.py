@@ -40,6 +40,7 @@ def next_action(state: dict, intent: str, errors: list[str]) -> dict:
     # --- user is confirming the summary ---
     if intent == "confirm" and state.get("confirmed"):
         booking_id = save_booking(state)
+        state["booking_id"] = booking_id
         return {
             "step":  "booked",
             "reply": messages.booking_confirmed(booking_id, state, lang),
