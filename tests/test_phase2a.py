@@ -6,8 +6,8 @@ into state.py + validators.py + bookings.py + policy.py.
 import sys
 import os
 
-# Run from the project root so relative imports work
-sys.path.insert(0, os.path.dirname(__file__))
+# Add project root to path so imports work from any working directory
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.state import new_state, apply_updates
 from src.policy import next_action, detect_language
@@ -93,8 +93,8 @@ print("\n6. check_availability")
 result_free = check_availability("Dr. Sara (sample)", "2026-12-07", "09:00")
 check("Free slot → available=True", result_free["available"] is True)
 
-# 2026-12-01 10:00 is pre-booked in bookings.json
-result_taken = check_availability("Dr. Sara (sample)", "2026-12-01", "10:00")
+# 2026-12-13 10:00 is pre-booked in bookings.json (Sunday, within Dr. Sara's 09:00-12:00)
+result_taken = check_availability("Dr. Sara (sample)", "2026-12-13", "10:00")
 check("Pre-booked slot → available=False", result_taken["available"] is False)
 check("Pre-booked slot → nearest slots returned", len(result_taken.get("nearest", [])) > 0)
 print(f"       Nearest free slots: {result_taken.get('nearest')}")

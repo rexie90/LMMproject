@@ -1,12 +1,12 @@
 """
 Phase 2b smoke test — makes ONE real Gemini call to verify the LLM stack.
 Run from the project root with the venv activated:
-    python test_phase2b.py
+    python tests/test_phase2b.py
 """
 import os
 import sys
 
-sys.path.insert(0, os.path.dirname(__file__))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from dotenv import load_dotenv
 

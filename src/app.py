@@ -1,10 +1,11 @@
 """
 Mawid — office-hours booking chatbot.
 Streamlit UI: chat window + sidebar slot panel + "New booking" button.
+Arabic replies are rendered RTL; English replies are LTR.
 """
 from __future__ import annotations
 
-import os
+import re
 from datetime import date
 
 import streamlit as st
@@ -26,17 +27,6 @@ st.set_page_config(
     layout="wide",
 )
 
-# ── session state bootstrap ───────────────────────────────────────────────────
-if "booking_state" not in st.session_state:
-    st.session_state.booking_state = new_state()
-if "messages" not in st.session_state:
-    # Start with the greeting message in English (default)
-    st.session_state.messages = [
-        {"role": "assistant", "content": greeting("EN")}
-    ]
-if "done" not in st.session_state:
-    st.session_state.done = False  # True once booking saved or cancelled
-
 # ── constants ─────────────────────────────────────────────────────────────────
 _MAX_INPUT_CHARS = 500
 _SLOT_LABELS = {
@@ -47,6 +37,51 @@ _SLOT_LABELS = {
     "student_name": "Name",
     "course_code":  "Course code (optional)",
 }
+
+# ── RTL rendering helper ──────────────────────────────────────────────────────
+
+def _render_reply(content: str, lang: str) -> None:
+    """
+    Render a chat message with the correct text direction.
+    - EN: standard st.markdown (LTR, full markdown support).
+    - AR: RTL HTML div. Handles **bold** and an optional trailing ```json block.
+    """
+    if lang != "AR":
+        st.markdown(content)
+        return
+
+    # Split out an optional ```json code block at the end of the reply
+    code_block = ""
+    text_part = content
+    if "```json" in content:
+        idx = content.index("```json")
+        text_part = content[:idx]
+        after = content[idx + 7:]                       # strip the opening ```json
+        code_block = after.rsplit("```", 1)[0].strip()
+
+    # Convert text to safe HTML: escape special chars, bold, newlines
+    safe = text_part.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    safe = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", safe)
+    safe = safe.replace("\n", "<br>")
+
+    st.markdown(
+        f'<div dir="rtl" style="text-align:right; line-height:1.6;">{safe}</div>',
+        unsafe_allow_html=True,
+    )
+    if code_block:
+        st.code(code_block, language="json")
+
+
+# ── session state bootstrap ───────────────────────────────────────────────────
+if "booking_state" not in st.session_state:
+    st.session_state.booking_state = new_state()
+if "messages" not in st.session_state:
+    st.session_state.messages = [
+        {"role": "assistant", "content": greeting("EN"), "lang": "EN"}
+    ]
+if "done" not in st.session_state:
+    st.session_state.done = False
+
 
 # ── sidebar: slot state panel ─────────────────────────────────────────────────
 with st.sidebar:
@@ -62,9 +97,8 @@ with st.sidebar:
     st.divider()
     if st.button("🗑 New booking", use_container_width=True):
         st.session_state.booking_state = new_state()
-        lang = "EN"
         st.session_state.messages = [
-            {"role": "assistant", "content": greeting(lang)}
+            {"role": "assistant", "content": greeting("EN"), "lang": "EN"}
         ]
         st.session_state.done = False
         st.rerun()
@@ -75,7 +109,7 @@ st.caption("Office-hours booking assistant · Umm Al-Qura University")
 
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
+        _render_reply(msg["content"], msg.get("lang", "EN"))
 
 # ── input bar ─────────────────────────────────────────────────────────────────
 if st.session_state.done:
@@ -97,14 +131,14 @@ else:
             )
             st.stop()
 
-        # --- show user message ---
-        with st.chat_message("user"):
-            st.markdown(user_input)
-        st.session_state.messages.append({"role": "user", "content": user_input})
-
         # --- detect language and update state ---
         lang = detect_language(user_input)
         st.session_state.booking_state["language"] = lang
+
+        # --- show user message ---
+        with st.chat_message("user"):
+            _render_reply(user_input, lang)
+        st.session_state.messages.append({"role": "user", "content": user_input, "lang": lang})
 
         today = str(date.today())
 
@@ -142,9 +176,9 @@ else:
                     reply = llm_error(lang)
                     print(f"[Mawid app] Error in dialogue: {type(e).__name__}: {e}")
 
-            st.markdown(reply)
+            _render_reply(reply, lang)
 
-        st.session_state.messages.append({"role": "assistant", "content": reply})
+        st.session_state.messages.append({"role": "assistant", "content": reply, "lang": lang})
 
         # --- refresh sidebar immediately ---
         st.rerun()
