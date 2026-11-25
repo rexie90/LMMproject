@@ -1,0 +1,11 @@
+[
+  {
+    "booking_id":   "MWD-20261201-0001",
+    "instructor":   "Dr. Sara (sample)",
+    "date":         "2026-12-01",
+    "time":         "10:00",
+    "topic":        "Assignment feedback",
+    "student_name": "Nora Ahmed",
+    "course_code":  "CS101"
+  }
+]
