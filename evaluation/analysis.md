@@ -31,15 +31,20 @@
 
 2. **Second fallback invoked twice (T5b, T5d).** `gemini-3.5-flash-lite` itself returned 429 on two calls. The second fallback (`gemini-3.1-flash-lite`) succeeded in both cases. This demonstrates that the two-fallback design is valuable under sustained free-tier usage.
 
-### Previous failures (from development)
+### Bugs found during development
 
-During development, the following failures occurred and were fixed:
+The following bugs were found during the rehearsal run (`tests/run_tests.py`) and manual browser testing, and were fixed before the official evaluation run:
 
-| Issue | Cause | Fix |
-|---|---|---|
-| T1 turn 4 classified as off_topic | "I need help with my final project" looked like a request, not an answer to "what is your topic?" | Added `asking_for` state field + Rule 11 in v2 prompt (`src/policy.py`, `src/prompts.py`) |
-| T3 booked slot not detected | `check_availability` only checked existing bookings, not office-hour windows | Added office-hour window check in `bookings.py:check_availability` |
-| Arabic date errors showed English day names | `validators.py` day error messages used English weekday names | Added `_DAY_AR` dict and `_day_ar()` helper in `validators.py` |
+| # | Bug | Cause | Fix |
+|---|---|---|---|
+| B1 | LLM call hung for 16+ minutes, blocking the app | The google-genai SDK has no default timeout; a stalled request blocked indefinitely | Added `HttpOptions(timeout=30000)` (30 s, in ms) per request and a 90 s hard deadline in `src/llm_client.py` |
+| B2 | Pre-booked slot was outside Dr. Sara's Tuesday office hours | Sample booking was set to 2026-12-01 10:00 (Tue); Sara's Tue hours are 13:00–15:00, so T3 could not reach `step=suggest` | Moved pre-booked slot to 2026-12-13 (Sunday) 10:00, within Sara's Sun 09:00–12:00 window (`data/bookings.json`) |
+| B3 | `booking_id` was None after `step=booked` | `save_booking()` returned the ID but `next_action()` never stored it back in `state` | Added `state["booking_id"] = booking_id` in the `booked` branch of `src/policy.py:next_action()` |
+| B4 | Booking allowed on a day with no office hours when date was given before instructor | Date was validated without a known instructor; once the instructor was provided, the existing date was not re-checked | Added dependent re-validation in `src/state.py:apply_updates()` (Phase 2 and 3 cross-validation); also added an office-hours window check to `src/bookings.py:check_availability()` |
+| B5 | App crashed on startup with `ModuleNotFoundError: No module named 'src'` | `streamlit run src/app.py` from the project root did not add the root to `sys.path` | Added `sys.path.insert(0, project_root)` at the top of `src/app.py`; fixed `AppTest` path in `tests/test_app.py` to use an absolute path |
+| B6 | A short topic answer ("I need help with my final project") was classified as `off_topic` during the T1 rehearsal run | An early version of v2 (before Rule 11) had no hint that the bot had just asked for the topic; the LLM treated the sentence as a general request | Added `state["asking_for"]` tracking in `src/policy.py` and Rule 11 to the v2 prompt in `src/prompts.py`; v2 was improved iteratively — this was not a failure of v1 |
+
+All bugs were found by the rehearsal run and by manual browser testing before the official T1–T5 run.
 
 ---
 
