@@ -1,5 +1,5 @@
 id,name,turn,input,expected,actual,pass,reason
-T1,Normal multi-turn EN,final,Yes,"step=booked, booking_id in reply","step=ask, reply=What is the topic or reason for the appointment?",FAIL,booking_id missing
+T1,Normal multi-turn EN,final,Yes,"step=booked, booking_id in reply","step=booked, reply=Booking confirmed! Your booking ID is: **MWD-20261207-0001**",PASS,booking_id present
 T1,Normal multi-turn EN,slots,(all turns),"instructor=Dr. Khalid, date=2026-12-07, time=10:30","instructor=Dr. Khalid (sample), date=2026-12-07, time=10:30",PASS,
 T2,Single message Arabic,1,أبغى أحجز مع د.سارة يوم الأحد القادم الساعة 9 الموضوع مشروع التخرج واسمي ريم الشمري,"step=confirm, instructor=Dr. Sara (sample), date=2026-11-29, time=09:00","step=confirm, slots=Dr. Sara (sample), 2026-11-29, 09:00",PASS,
 T2,Single message Arabic,1,أبغى أحجز مع د.سارة يوم الأحد القادم الساعة 9 الموضوع مشروع التخرج واسمي ريم الشمري,reply language = AR,language=AR,PASS,
@@ -11,7 +11,9 @@ T3,Final confirm,4,Yes confirm,"step=booked, booking_id present","step=booked, b
 T4,Ambiguous - no instructor name,1,أبغى أحجز مع الدكتور,"instructor=null, step=ask (asking which instructor)","instructor=None, step=ask",PASS,
 T4,Instructor resolved,2,د. سارة,"instructor=Dr. Sara (sample), step=ask (asking for date)","instructor=Dr. Sara (sample), step=ask",PASS,
 T4,Ambiguous time (no AM/PM),3,الساعة 7,"time=null (ambiguous), step=ask (clarify AM/PM)","time=None, step=ask",PASS,
-test_t4,ERROR,?,,,Could not reach the AI model after multiple attempts. Please wait a moment and try again.,FAIL,LLMError
+T4,Time outside office hours,4,الساعة 7 الصباح يوم الأحد,step=reask (07:00 outside Dr. Sara's 09:00-12:00 hours),"step=reask, errors=['07:00 خارج ساعات مكتب Dr. Sara (sample) يوم الأحد (09:00–12:00).']",PASS,
 T5a,Unknown instructor,1,Book with Dr. Mohammed,instructor=null or validation error; step=ask or reask,"instructor=None, step=ask",PASS,
 T5b,Past date,1,Book Dr. Khalid on December 1 2020 at 10:00,step=reask (date in the past),"step=reask, errors=['Date 2020-12-01 is in the past. Please choose a future date.']",PASS,
-test_t5,ERROR,?,,,Could not reach the AI model after multiple attempts. Please wait a moment and try again.,FAIL,LLMError
+T5c,Outside office hours,1,10:00 on Dr. Sara Tuesday (13:00-15:00 only),step=reask (time outside office hours),"step=reask, errors=[""10:00 is outside Dr. Sara (sample)'s office hours on Tuesday (13:00–15:00).""]",PASS,
+T5d,Off-topic message,1,What is the weather today?,"intent=off_topic, step=redirect","intent=off_topic, step=redirect",PASS,
+T5e,Arabic cancel,1,إلغاء,"intent=cancel, step=cancelled, reply in Arabic","intent=cancel, step=cancelled, lang=AR",PASS,
