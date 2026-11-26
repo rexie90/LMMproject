@@ -91,8 +91,13 @@ check("Empty course code (optional) → no error",
 
 # ── Test 6: check_availability ───────────────────────────────────────────────
 print("\n6. check_availability")
-result_free = check_availability("Dr. Sara (sample)", "2026-12-07", "09:00")
-check("Free slot → available=True", result_free["available"] is True)
+# 2026-12-06 is a Sunday — Dr. Sara's hours are 09:00-12:00
+result_free = check_availability("Dr. Sara (sample)", "2026-12-06", "09:00")
+check("Free slot on correct day → available=True", result_free["available"] is True)
+
+# 2026-12-07 is a Monday — Dr. Sara has no Monday hours
+result_no_hours = check_availability("Dr. Sara (sample)", "2026-12-07", "09:00")
+check("No office hours on that day → available=False", result_no_hours["available"] is False)
 
 # 2026-12-13 10:00 is pre-booked in bookings.json (Sunday, within Dr. Sara's 09:00-12:00)
 result_taken = check_availability("Dr. Sara (sample)", "2026-12-13", "10:00")
@@ -100,8 +105,40 @@ check("Pre-booked slot → available=False", result_taken["available"] is False)
 check("Pre-booked slot → nearest slots returned", len(result_taken.get("nearest", [])) > 0)
 print(f"       Nearest free slots: {result_taken.get('nearest')}")
 
-# ── Test 7: policy — missing slot triggers ask ───────────────────────────────
-print("\n7. policy.next_action — missing slot")
+# ── Test 7: dependent slot cross-validation ──────────────────────────────────
+print("\n7. Dependent slot cross-validation")
+from src.state import apply_updates as _apply  # already imported above but alias for clarity
+
+# Scenario A: date set first (Monday), then instructor added who has no Monday hours
+# → instructor accepted, but date cleared with an error
+sv = new_state(); sv["_today"] = "2026-11-25"
+sv, e1 = _apply(sv, {"date": "2026-12-07"})   # Monday, no instructor yet
+check("Monday date accepted without instructor", e1 == [] and sv["date"] == "2026-12-07")
+sv, e2 = _apply(sv, {"instructor": "Dr. Sara (sample)"})
+check("Instructor added, Monday date cleared with error", len(e2) > 0 and sv.get("date") is None)
+check("Time also cleared when date cleared", sv.get("time") is None)
+
+# Scenario B: date + time set, then instructor corrected to one with no hours on that day
+sv2 = new_state(); sv2["_today"] = "2026-11-25"
+sv2, _ = _apply(sv2, {"instructor": "Dr. Khalid (sample)", "date": "2026-12-07", "time": "10:30"})
+check("Khalid Mon slot accepted fully", sv2.get("date") == "2026-12-07" and sv2.get("time") == "10:30")
+sv2, e3 = _apply(sv2, {"instructor": "Dr. Sara (sample)"})   # Sara has no Monday hours
+check("Instructor correction clears incompatible date and time", len(e3) > 0 and sv2.get("date") is None and sv2.get("time") is None)
+
+# Scenario C: validate_slot("time") returns error when day has no windows
+from src.validators import validate_slot as vs
+state_no_hours = {
+    "instructor": "Dr. Sara (sample)",
+    "date":       "2026-12-07",   # Monday — Sara has no Monday hours
+    "_today":     "2026-11-25",
+    "language":   "EN",
+}
+check("time validate — no office hours on day → error",
+      vs("time", "10:00", state_no_hours) is not None)
+
+
+# ── Test 8: policy — missing slot triggers ask ───────────────────────────────
+print("\n8. policy.next_action — missing slot")
 s = new_state()
 s["language"] = "EN"
 s["instructor"] = "Dr. Sara (sample)"
@@ -109,15 +146,15 @@ action = next_action(s, "provide_info", [])
 check("Missing date → step is 'ask'", action["step"] == "ask")
 check("Reply mentions date", "date" in action["reply"].lower())
 
-# ── Test 8: policy — validation error triggers reask ─────────────────────────
-print("\n8. policy.next_action — validation errors")
+# ── Test 9: policy — validation error triggers reask ─────────────────────────
+print("\n9. policy.next_action — validation errors")
 s = new_state()
 s["language"] = "EN"
 action = next_action(s, "provide_info", ["Unknown instructor 'Dr. X'."])
 check("Errors present → step is 'reask'", action["step"] == "reask")
 
-# ── Test 9: policy — full state → confirm step ───────────────────────────────
-print("\n9. policy.next_action — all slots filled, free slot → confirm")
+# ── Test 10: policy — full state → confirm step ──────────────────────────────
+print("\n10. policy.next_action — all slots filled, free slot → confirm")
 s = new_state()
 s.update({
     "instructor": "Dr. Sara (sample)",
@@ -131,15 +168,15 @@ action = next_action(s, "provide_info", [])
 check("All slots filled + free → step is 'confirm'", action["step"] == "confirm")
 check("Reply contains instructor name", "Dr. Sara" in action["reply"])
 
-# ── Test 10: policy — off-topic → redirect ───────────────────────────────────
-print("\n10. policy.next_action — off-topic")
+# ── Test 11: policy — off-topic → redirect ───────────────────────────────────
+print("\n11. policy.next_action — off-topic")
 s = new_state()
 s["language"] = "EN"
 action = next_action(s, "off_topic", [])
 check("off_topic intent → step is 'redirect'", action["step"] == "redirect")
 
-# ── Test 11: policy — cancel ─────────────────────────────────────────────────
-print("\n11. policy.next_action — cancel")
+# ── Test 12: policy — cancel ─────────────────────────────────────────────────
+print("\n12. policy.next_action — cancel")
 s = new_state()
 s["language"] = "EN"
 action = next_action(s, "cancel", [])

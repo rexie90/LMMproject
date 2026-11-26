@@ -31,3 +31,6 @@ course_materials/
 
 # Test artifacts
 data/bookings_test_tmp.json
+
+# Runtime bookings (created from data/bookings.json on first app run)
+data/bookings_runtime.json

@@ -38,17 +38,18 @@ os.makedirs("evaluation", exist_ok=True)
 # Redirect src.bookings to a temporary copy so save_booking() does not write
 # to the real data/bookings.json. The real file is restored in the finally block.
 
-_REAL_BOOKINGS = Path("data/bookings.json")
-_TMP_BOOKINGS  = Path("data/bookings_test_tmp.json")
+_SAMPLE_BOOKINGS = Path("data/bookings.json")    # committed sample; always has the pre-booked slot
+_TMP_BOOKINGS    = Path("data/bookings_test_tmp.json")
+_REAL_BOOKINGS   = _bk._BOOKINGS_FILE            # capture original (= bookings_runtime.json)
 
 
 def _setup_tmp_bookings() -> None:
-    shutil.copy(_REAL_BOOKINGS, _TMP_BOOKINGS)
+    shutil.copy(_SAMPLE_BOOKINGS, _TMP_BOOKINGS)  # start from sample, not runtime
     _bk._BOOKINGS_FILE = _TMP_BOOKINGS
 
 
 def _teardown_tmp_bookings() -> None:
-    _bk._BOOKINGS_FILE = _REAL_BOOKINGS
+    _bk._BOOKINGS_FILE = _REAL_BOOKINGS           # restore to runtime file
     _TMP_BOOKINGS.unlink(missing_ok=True)
 
 

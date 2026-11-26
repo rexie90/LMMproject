@@ -4,6 +4,7 @@ import re
 
 from src import messages
 from src.bookings import check_availability, save_booking
+from src.messages import ask_what_to_change
 
 _REQUIRED_SLOTS = ["instructor", "date", "time", "topic", "student_name"]
 
@@ -49,10 +50,7 @@ def next_action(state: dict, intent: str, errors: list[str]) -> dict:
     # --- user is rejecting after summary (wants to change something) ---
     if intent == "reject" and state.get("confirmed"):
         state["confirmed"] = False
-        missing = _first_missing(state)
-        if missing:
-            return {"step": "ask", "reply": messages.ask_slot(missing, lang)}
-        return {"step": "ask", "reply": messages.ask_slot("instructor", lang)}
+        return {"step": "ask", "reply": ask_what_to_change(lang)}
 
     # --- check if any required slot is still missing ---
     missing = _first_missing(state)

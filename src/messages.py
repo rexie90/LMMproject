@@ -9,11 +9,21 @@ def greeting(lang: str) -> str:
     if lang == "AR":
         return (
             "مرحباً! أنا مساعد حجز ساعات المكتب في جامعة أم القرى.\n"
-            "كيف أقدر أساعدك؟ أخبرني باسم الدكتور/ة اللي تريد تحجز معه/ها."
+            "أخبرني باسم الدكتور/ة اللي تريد تحجز معه/ها."
         )
     return (
         "Hello! I'm the office-hours booking assistant at Umm Al-Qura University.\n"
         "Which instructor would you like to book an appointment with?"
+    )
+
+
+def greeting_bilingual() -> str:
+    """Bilingual welcome shown at the start before the user's language is known."""
+    return (
+        "مرحباً! أنا مساعد حجز ساعات المكتب في جامعة أم القرى.\n"
+        "Hello! I'm Mawid, the office-hours booking assistant at Umm Al-Qura University.\n\n"
+        "ما اسم الدكتور/ة الذي تريد الحجز معه/ها؟\n"
+        "Which instructor would you like to book with?"
     )
 
 
@@ -123,6 +133,12 @@ def off_topic(lang: str) -> str:
     if lang == "AR":
         return "أنا متخصص فقط في حجز مواعيد ساعات المكتب. هل تريد حجز موعد مع دكتور/ة؟"
     return "I can only help with booking office-hours appointments. Would you like to book one?"
+
+
+def ask_what_to_change(lang: str) -> str:
+    if lang == "AR":
+        return "بالتأكيد. ماذا تريد تغيير؟ (مثال: التاريخ، الوقت، أو الاسم)"
+    return "Of course. What would you like to change? (e.g. the date, time, or name)"
 
 
 def clarification_needed(slot: str, lang: str) -> str:

@@ -16,7 +16,7 @@ load_dotenv()
 
 from src.extractor import ExtractionError, extract
 from src.llm_client import LLMError
-from src.messages import greeting, llm_error
+from src.messages import greeting_bilingual, llm_error
 from src.policy import detect_language, next_action
 from src.state import apply_updates, new_state
 
@@ -77,7 +77,7 @@ if "booking_state" not in st.session_state:
     st.session_state.booking_state = new_state()
 if "messages" not in st.session_state:
     st.session_state.messages = [
-        {"role": "assistant", "content": greeting("EN"), "lang": "EN"}
+        {"role": "assistant", "content": greeting_bilingual(), "lang": "EN"}
     ]
 if "done" not in st.session_state:
     st.session_state.done = False
@@ -98,7 +98,7 @@ with st.sidebar:
     if st.button("🗑 New booking", use_container_width=True):
         st.session_state.booking_state = new_state()
         st.session_state.messages = [
-            {"role": "assistant", "content": greeting("EN"), "lang": "EN"}
+            {"role": "assistant", "content": greeting_bilingual(), "lang": "EN"}
         ]
         st.session_state.done = False
         st.rerun()

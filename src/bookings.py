@@ -1,23 +1,29 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+import shutil
 from pathlib import Path
 
 _DATA_DIR = Path(__file__).parent.parent / "data"
-_BOOKINGS_FILE = _DATA_DIR / "bookings.json"
-_INSTRUCTORS_FILE = _DATA_DIR / "instructors.json"
+_SAMPLE_FILE  = _DATA_DIR / "bookings.json"          # committed; never written by the app
+_RUNTIME_FILE = _DATA_DIR / "bookings_runtime.json"  # created on first run; gitignored
+_BOOKINGS_FILE = _RUNTIME_FILE                       # patched by test runner to a temp path
+
+
+def _ensure_runtime() -> None:
+    """Create bookings_runtime.json from the committed sample on first run."""
+    if not _RUNTIME_FILE.exists():
+        shutil.copy(_SAMPLE_FILE, _RUNTIME_FILE)
 
 
 def _load_bookings() -> list[dict]:
-    if not _BOOKINGS_FILE.exists():
-        return []
+    _ensure_runtime()
     with open(_BOOKINGS_FILE, encoding="utf-8") as f:
         return json.load(f)
 
 
 def _load_instructors() -> list[dict]:
-    with open(_INSTRUCTORS_FILE, encoding="utf-8") as f:
+    with open(_DATA_DIR / "instructors.json", encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -40,7 +46,7 @@ def _office_hour_slots(instructor_name: str, day_name: str) -> list[str]:
             if window["day"] != day_name:
                 continue
             start = _time_to_minutes(window["start"])
-            end = _time_to_minutes(window["end"])
+            end   = _time_to_minutes(window["end"])
             current = start
             while current < end:
                 slots.append(_minutes_to_time(current))
@@ -50,7 +56,7 @@ def _office_hour_slots(instructor_name: str, day_name: str) -> list[str]:
 
 def check_availability(instructor: str, date: str, time: str) -> dict:
     """
-    Check if a slot is free.
+    Check if a slot is free and within office hours.
 
     Returns:
       {"available": True}
@@ -58,6 +64,32 @@ def check_availability(instructor: str, date: str, time: str) -> dict:
     """
     from datetime import date as date_cls
 
+    try:
+        d = date_cls.fromisoformat(date)
+    except ValueError:
+        return {"available": False, "nearest": []}
+
+    day_name = d.strftime("%A")
+    all_slots = _office_hour_slots(instructor, day_name)
+
+    if not all_slots:
+        # No office hours on this day — validator should have caught this upstream
+        return {"available": False, "nearest": []}
+
+    # Reject times outside the valid office-hour grid (wrong interval or out of hours)
+    if time not in all_slots:
+        bookings = _load_bookings()
+        taken = {
+            b["time"]
+            for b in bookings
+            if b["instructor"].lower() == instructor.lower() and b["date"] == date
+        }
+        free = [s for s in all_slots if s not in taken]
+        req  = _time_to_minutes(time)
+        free.sort(key=lambda s: abs(_time_to_minutes(s) - req))
+        return {"available": False, "nearest": free[:2]}
+
+    # Time is a valid office-hours slot: check for existing bookings
     bookings = _load_bookings()
     taken = {
         b["time"]
@@ -68,39 +100,25 @@ def check_availability(instructor: str, date: str, time: str) -> dict:
     if time not in taken:
         return {"available": True}
 
-    # Find up to 2 nearest free slots on the same day
-    try:
-        d = date_cls.fromisoformat(date)
-    except ValueError:
-        return {"available": False, "nearest": []}
-
-    day_name = d.strftime("%A")
-    all_slots = _office_hour_slots(instructor, day_name)
-    free_slots = [s for s in all_slots if s not in taken]
-
-    requested_minutes = _time_to_minutes(time)
-    free_slots.sort(key=lambda s: abs(_time_to_minutes(s) - requested_minutes))
-    nearest = free_slots[:2]
-
-    return {"available": False, "nearest": nearest}
+    free = [s for s in all_slots if s not in taken]
+    req  = _time_to_minutes(time)
+    free.sort(key=lambda s: abs(_time_to_minutes(s) - req))
+    return {"available": False, "nearest": free[:2]}
 
 
 def save_booking(state: dict) -> str:
     """
-    Persist a confirmed booking to data/bookings.json.
+    Persist a confirmed booking to the runtime bookings file.
     Returns a booking ID string like "MWD-20261201-0002".
     """
     bookings = _load_bookings()
 
-    # Generate next ID: count existing bookings for that date + 1
     date_compact = state["date"].replace("-", "")
-    day_bookings = [
-        b for b in bookings if b["date"] == state["date"]
-    ]
+    day_bookings = [b for b in bookings if b["date"] == state["date"]]
     seq = len(day_bookings) + 1
     booking_id = f"MWD-{date_compact}-{seq:04d}"
 
-    record = {
+    record: dict = {
         "booking_id":   booking_id,
         "instructor":   state["instructor"],
         "date":         state["date"],

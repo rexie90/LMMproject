@@ -1,14 +1,17 @@
 id,name,turn,input,expected,actual,pass,reason
-test_t1,ERROR,?,,,Could not reach the AI model after multiple attempts. Please wait a moment and try again.,FAIL,LLMError
+T1,Normal multi-turn EN,final,Yes,"step=booked, booking_id in reply","step=ask, reply=What is the topic or reason for the appointment?",FAIL,booking_id missing
+T1,Normal multi-turn EN,slots,(all turns),"instructor=Dr. Khalid, date=2026-12-07, time=10:30","instructor=Dr. Khalid (sample), date=2026-12-07, time=10:30",PASS,
 T2,Single message Arabic,1,أبغى أحجز مع د.سارة يوم الأحد القادم الساعة 9 الموضوع مشروع التخرج واسمي ريم الشمري,"step=confirm, instructor=Dr. Sara (sample), date=2026-11-29, time=09:00","step=confirm, slots=Dr. Sara (sample), 2026-11-29, 09:00",PASS,
 T2,Single message Arabic,1,أبغى أحجز مع د.سارة يوم الأحد القادم الساعة 9 الموضوع مشروع التخرج واسمي ريم الشمري,reply language = AR,language=AR,PASS,
 T2,Single message Arabic,2,نعم,"step=booked, booking_id in reply","step=booked, booking_id=MWD-20261129-0001",PASS,
 T3,Booked slot,1,"Book Dr. Sara on Sunday December 13 at 10:00, topic is exam review, my name is Lina Nasser","step=suggest (slot unavailable), nearest slots returned","step=suggest, reply=That slot is already booked. Nearest available times: 09:30 ",PASS,
 T3,Correction - pick free time,2,10:30,"step=confirm, time=10:30","step=confirm, time=10:30",PASS,
 T3,Name correction after summary,3,Actually change my name to Lina Al-Nasser,"step=confirm, student_name=Lina Al-Nasser, instructor/date/time unchanged","step=confirm, name=Lina Al-Nasser, time=10:30",PASS,
-test_t3,ERROR,?,,,Could not reach the AI model after multiple attempts. Please wait a moment and try again.,FAIL,LLMError
+T3,Final confirm,4,Yes confirm,"step=booked, booking_id present","step=booked, booking_id=MWD-20261213-0002",PASS,
 T4,Ambiguous - no instructor name,1,أبغى أحجز مع الدكتور,"instructor=null, step=ask (asking which instructor)","instructor=None, step=ask",PASS,
 T4,Instructor resolved,2,د. سارة,"instructor=Dr. Sara (sample), step=ask (asking for date)","instructor=Dr. Sara (sample), step=ask",PASS,
 T4,Ambiguous time (no AM/PM),3,الساعة 7,"time=null (ambiguous), step=ask (clarify AM/PM)","time=None, step=ask",PASS,
-T4,Time outside office hours,4,الساعة 7 الصباح يوم الأحد,step=reask (07:00 outside Dr. Sara's 09:00-12:00 hours),"step=reask, errors=[""07:00 is outside Dr. Sara (sample)'s office hours on Sunday (09:00–12:00).""]",PASS,
+test_t4,ERROR,?,,,Could not reach the AI model after multiple attempts. Please wait a moment and try again.,FAIL,LLMError
+T5a,Unknown instructor,1,Book with Dr. Mohammed,instructor=null or validation error; step=ask or reask,"instructor=None, step=ask",PASS,
+T5b,Past date,1,Book Dr. Khalid on December 1 2020 at 10:00,step=reask (date in the past),"step=reask, errors=['Date 2020-12-01 is in the past. Please choose a future date.']",PASS,
 test_t5,ERROR,?,,,Could not reach the AI model after multiple attempts. Please wait a moment and try again.,FAIL,LLMError
