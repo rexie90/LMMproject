@@ -30,9 +30,11 @@ def _load_instructor_text() -> str:
 
 def _state_summary(state: dict) -> str:
     filled = {k: v for k, v in state.items() if v and k in _SLOT_KEYS}
-    if not filled:
-        return "No slots filled yet."
-    return "\n".join(f"  {k}: {v}" for k, v in filled.items())
+    lines = [] if filled else ["No slots filled yet."]
+    lines.extend(f"  {k}: {v}" for k, v in filled.items())
+    if state.get("asking_for"):
+        lines.append(f"  [Bot just asked for: {state['asking_for']}]")
+    return "\n".join(lines)
 
 
 def _next_weekday(today_str: str, weekday: int) -> str:
@@ -163,6 +165,10 @@ Return ONLY valid JSON — no markdown fences, no preamble, no explanation:
 8. OFF-TOPIC       — Unrelated to booking office hours → intent = "off_topic", all updates null.
 9. INSTRUCTOR NAMES — Only use names exactly as listed above. Unrecognised names → null.
 10. OPTIONAL FIELD  — course_code is optional; extract only if the user explicitly mentions it.
+11. SHORT ANSWER    — If the state shows "[Bot just asked for: X]", the user's reply is very
+   likely a value for slot X. Treat a plain sentence or phrase as the value for that slot with
+   intent "provide_info" unless it is clearly about something unrelated to booking (e.g. weather,
+   restaurants). Do NOT classify a plain topic sentence as off_topic when asking_for = "topic".
 
 ## EXAMPLES
 Input: "أبغى أحجز مع د.سارة يوم الأحد الجاي الساعة 10"

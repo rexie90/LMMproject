@@ -168,35 +168,46 @@ def call_llm(system_prompt: str, user_message: str, timeout_s: int = 30) -> str:
                     break
                 time.sleep(min(2 ** attempt, rem - _MIN_REMAINING_S))
 
-    # ── fallback model ───────────────────────────────────────────────────────
-    if fallback:
+    # ── fallback models (tried in order until one succeeds) ──────────────────
+    fallback_models = [
+        m for m in [
+            os.environ.get("GEMINI_FALLBACK_MODEL",   "").strip(),
+            os.environ.get("GEMINI_FALLBACK_MODEL_2", "").strip(),
+        ] if m
+    ]
+
+    for fb_model in fallback_models:
         rem = _remaining(deadline)
         if rem < _MIN_REMAINING_S:
-            print(f"[Mawid LLM] No time left for fallback model '{fallback}'.")
-        else:
-            req_timeout = max(1, int(min(timeout_s, rem)))
+            print(f"[Mawid LLM] No time left for fallback model '{fb_model}'.")
+            break
+        req_timeout = max(1, int(min(timeout_s, rem)))
+        print(
+            f"[Mawid LLM] Trying fallback '{fb_model}' "
+            f"(timeout {req_timeout} s, {rem:.0f} s left on deadline)…"
+        )
+        client = _get_client(req_timeout)
+        try:
+            return _call_once(client, fb_model, system_prompt, user_message)
+
+        except errors.APIError as e:
+            if e.code in (401, 403):
+                raise LLMError(
+                    "API key is not authorized. Check your GOOGLE_API_KEY in .env."
+                )
+            if e.code == 404:
+                print(f"[Mawid LLM] Fallback '{fb_model}' → 404; trying next fallback.")
+                continue
             print(
-                f"[Mawid LLM] Trying fallback '{fallback}' "
-                f"(timeout {req_timeout} s, {rem:.0f} s left on deadline)…"
+                f"[Mawid LLM] Fallback '{fb_model}' failed: HTTP {e.code}; "
+                "trying next fallback."
             )
-            client = _get_client(req_timeout)
-            try:
-                return _call_once(client, fallback, system_prompt, user_message)
 
-            except errors.APIError as e:
-                if e.code in (401, 403):
-                    raise LLMError(
-                        "API key is not authorized. Check your GOOGLE_API_KEY in .env."
-                    )
-                if e.code == 404:
-                    raise LLMError(
-                        f"Fallback model '{fallback}' is not available to this key. "
-                        "Update GEMINI_FALLBACK_MODEL in .env."
-                    )
-                print(f"[Mawid LLM] Fallback '{fallback}' failed: HTTP {e.code}")
-
-            except _TRANSPORT_ERRORS as e:
-                print(f"[Mawid LLM] Fallback '{fallback}' failed: {type(e).__name__}")
+        except _TRANSPORT_ERRORS as e:
+            print(
+                f"[Mawid LLM] Fallback '{fb_model}' failed: {type(e).__name__}; "
+                "trying next fallback."
+            )
 
     raise LLMError(
         "Could not reach the AI model after multiple attempts. "

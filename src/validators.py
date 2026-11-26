@@ -33,6 +33,24 @@ def _parse_time(t: str) -> datetime | None:
 
 COURSE_CODE_RE = re.compile(r"^[A-Za-z]{2,4}\d{3,4}$")
 
+_DAY_AR = {
+    "Monday":    "الاثنين",
+    "Tuesday":   "الثلاثاء",
+    "Wednesday": "الأربعاء",
+    "Thursday":  "الخميس",
+    "Friday":    "الجمعة",
+    "Saturday":  "السبت",
+    "Sunday":    "الأحد",
+}
+
+
+def _day_ar(day: str) -> str:
+    return _DAY_AR.get(day, day)
+
+
+def _days_ar(days: set | list) -> str:
+    return "، ".join(_day_ar(d) for d in sorted(days))
+
 
 def validate_slot(slot_name: str, value: str, state: dict) -> str | None:
     """
@@ -75,12 +93,12 @@ def validate_slot(slot_name: str, value: str, state: dict) -> str | None:
                 allowed_days = {oh["day"] for oh in inst["office_hours"]}
                 day_name = d.strftime("%A")
                 if day_name not in allowed_days:
-                    days_str = ", ".join(sorted(allowed_days))
                     if AR:
                         return (
-                            f"لا توجد ساعات مكتبية لـ {instructor_name} يوم {day_name}. "
-                            f"الأيام المتاحة: {days_str}."
+                            f"لا توجد ساعات مكتبية لـ {instructor_name} يوم {_day_ar(day_name)}. "
+                            f"الأيام المتاحة: {_days_ar(allowed_days)}."
                         )
+                    days_str = ", ".join(sorted(allowed_days))
                     return (
                         f"{instructor_name} has no office hours on {day_name}. "
                         f"Available days: {days_str}."
@@ -120,7 +138,7 @@ def validate_slot(slot_name: str, value: str, state: dict) -> str | None:
                     # No office hours on this day — the date validator should have
                     # caught this, but handle defensively here too.
                     if AR:
-                        return f"لا توجد ساعات مكتبية لـ {instructor_name} يوم {day_name}."
+                        return f"لا توجد ساعات مكتبية لـ {instructor_name} يوم {_day_ar(day_name)}."
                     return f"{instructor_name} has no office hours on {day_name}."
                 in_window = any(
                     _parse_time(w["start"]) <= t < _parse_time(w["end"])
@@ -131,7 +149,7 @@ def validate_slot(slot_name: str, value: str, state: dict) -> str | None:
                     if AR:
                         return (
                             f"{value} خارج ساعات مكتب {instructor_name} "
-                            f"يوم {day_name} ({ranges})."
+                            f"يوم {_day_ar(day_name)} ({ranges})."
                         )
                     return (
                         f"{value} is outside {instructor_name}'s office hours "

@@ -6,7 +6,15 @@ Arabic replies are rendered RTL; English replies are LTR.
 from __future__ import annotations
 
 import re
+import sys
 from datetime import date
+from pathlib import Path
+
+# Ensure "from src..." works when started with "streamlit run src/app.py"
+# from the project root (adds project root to sys.path if not already there).
+_project_root = str(Path(__file__).resolve().parent.parent)
+if _project_root not in sys.path:
+    sys.path.insert(0, _project_root)
 
 import streamlit as st
 from dotenv import load_dotenv

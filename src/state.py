@@ -14,6 +14,7 @@ def new_state() -> dict:
         "booking_id":   None,
         "language":     "EN",
         "step":         "greeting",
+        "asking_for":   None,
     }
 
 
