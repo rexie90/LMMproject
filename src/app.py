@@ -37,7 +37,7 @@ st.set_page_config(
 
 # ── constants ─────────────────────────────────────────────────────────────────
 _MAX_INPUT_CHARS = 500
-_SLOT_LABELS = {
+_SLOT_LABELS_EN = {
     "instructor":   "Instructor",
     "date":         "Date",
     "time":         "Time",
@@ -45,15 +45,50 @@ _SLOT_LABELS = {
     "student_name": "Name",
     "course_code":  "Course code (optional)",
 }
+_SLOT_LABELS_AR = {
+    "instructor":   "الدكتور/ة",
+    "date":         "التاريخ",
+    "time":         "الوقت",
+    "topic":        "الموضوع",
+    "student_name": "الاسم",
+    "course_code":  "رمز المادة (اختياري)",
+}
 
-# ── RTL rendering helper ──────────────────────────────────────────────────────
+# ── RTL rendering helpers ─────────────────────────────────────────────────────
+
+def _wrap_ltr(text: str) -> str:
+    """Wrap dates (YYYY-MM-DD), times (HH:MM), and booking IDs in LTR spans so
+    they don't reverse when displayed inside an RTL block."""
+    return re.sub(
+        r"(MWD-\d{8}-\d{4}|\d{4}-\d{2}-\d{2}|\b\d{2}:\d{2}\b)",
+        r'<span dir="ltr">\1</span>',
+        text,
+    )
+
 
 def _render_reply(content: str, lang: str) -> None:
     """
     Render a chat message with the correct text direction.
+    - BI: bilingual greeting — AR block (RTL div) then EN block (plain markdown).
     - EN: standard st.markdown (LTR, full markdown support).
-    - AR: RTL HTML div. Handles **bold** and an optional trailing ```json block.
+    - AR: RTL HTML div. Handles **bold**, LTR-wrapped numbers, and an optional
+          trailing ```json block.
     """
+    if lang == "BI":
+        parts = content.split("___BI___", 1)
+        ar_part = parts[0].strip() if parts else ""
+        en_part = parts[1].strip() if len(parts) > 1 else ""
+        if ar_part:
+            safe_ar = ar_part.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            safe_ar = safe_ar.replace("\n", "<br>")
+            st.markdown(
+                f'<div dir="rtl" style="text-align:right; line-height:1.6;">{safe_ar}</div>',
+                unsafe_allow_html=True,
+            )
+        if en_part:
+            st.markdown(en_part)
+        return
+
     if lang != "AR":
         st.markdown(content)
         return
@@ -67,9 +102,10 @@ def _render_reply(content: str, lang: str) -> None:
         after = content[idx + 7:]                       # strip the opening ```json
         code_block = after.rsplit("```", 1)[0].strip()
 
-    # Convert text to safe HTML: escape special chars, bold, newlines
+    # Convert text to safe HTML: escape special chars, bold, LTR-wrap, newlines
     safe = text_part.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     safe = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", safe)
+    safe = _wrap_ltr(safe)
     safe = safe.replace("\n", "<br>")
 
     st.markdown(
@@ -85,17 +121,21 @@ if "booking_state" not in st.session_state:
     st.session_state.booking_state = new_state()
 if "messages" not in st.session_state:
     st.session_state.messages = [
-        {"role": "assistant", "content": greeting_bilingual(), "lang": "EN"}
+        {"role": "assistant", "content": greeting_bilingual(), "lang": "BI"}
     ]
 if "done" not in st.session_state:
     st.session_state.done = False
 
+# Current conversation language — drives sidebar labels and input placeholder.
+_ui_lang = st.session_state.booking_state.get("language", "EN")
+
 
 # ── sidebar: slot state panel ─────────────────────────────────────────────────
 with st.sidebar:
-    st.header("Booking Slots")
+    st.header("بيانات الموعد" if _ui_lang == "AR" else "Booking Slots")
     state = st.session_state.booking_state
-    for slot, label in _SLOT_LABELS.items():
+    slot_labels = _SLOT_LABELS_AR if _ui_lang == "AR" else _SLOT_LABELS_EN
+    for slot, label in slot_labels.items():
         value = state.get(slot)
         if value:
             st.success(f"**{label}:** {value}")
@@ -103,10 +143,11 @@ with st.sidebar:
             st.info(f"**{label}:** —")
 
     st.divider()
-    if st.button("🗑 New booking", use_container_width=True):
+    _new_btn = "🗑 حجز جديد" if _ui_lang == "AR" else "🗑 New booking"
+    if st.button(_new_btn, use_container_width=True):
         st.session_state.booking_state = new_state()
         st.session_state.messages = [
-            {"role": "assistant", "content": greeting_bilingual(), "lang": "EN"}
+            {"role": "assistant", "content": greeting_bilingual(), "lang": "BI"}
         ]
         st.session_state.done = False
         st.rerun()
@@ -121,9 +162,11 @@ for msg in st.session_state.messages:
 
 # ── input bar ─────────────────────────────────────────────────────────────────
 if st.session_state.done:
-    st.chat_input("Booking complete. Click 'New booking' to start again.", disabled=True)
+    _done_placeholder = "تم الحجز. انقر 'حجز جديد' للبدء من جديد." if _ui_lang == "AR" else "Booking complete. Click 'New booking' to start again."
+    st.chat_input(_done_placeholder, disabled=True)
 else:
-    user_input = st.chat_input("Type your message here…")
+    _placeholder = "اكتب رسالتك هنا…" if _ui_lang == "AR" else "Type your message here…"
+    user_input = st.chat_input(_placeholder)
     if user_input is not None:
         user_input = user_input.strip()
 

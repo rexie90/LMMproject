@@ -18,11 +18,14 @@ def greeting(lang: str) -> str:
 
 
 def greeting_bilingual() -> str:
-    """Bilingual welcome shown at the start before the user's language is known."""
+    """Bilingual welcome shown at the start before the user's language is known.
+    AR and EN blocks are separated by ___BI___ so _render_reply renders each with
+    the correct directionality (AR = RTL div, EN = plain markdown)."""
     return (
         "مرحباً! أنا مساعد حجز ساعات المكتب في جامعة أم القرى.\n"
-        "Hello! I'm Mawid, the office-hours booking assistant at Umm Al-Qura University.\n\n"
-        "ما اسم الدكتور/ة الذي تريد الحجز معه/ها؟\n"
+        "ما اسم الدكتور/ة الذي تريد الحجز معه/ها؟"
+        "\n___BI___\n"
+        "Hello! I'm Mawid, the office-hours booking assistant at Umm Al-Qura University.\n"
         "Which instructor would you like to book with?"
     )
 
@@ -76,22 +79,22 @@ def confirmation_summary(state: dict, lang: str) -> str:
     if lang == "AR":
         return (
             "تفضل ملخص الموعد:\n\n"
-            f"• الدكتور/ة: {state['instructor']}\n"
-            f"• التاريخ: {state['date']}\n"
-            f"• الوقت: {state['time']}\n"
-            f"• الموضوع: {state['topic']}\n"
-            f"• الاسم: {state['student_name']}\n"
-            f"• رمز المادة: {course}\n\n"
+            f"• الدكتور/ة: {state['instructor']}  \n"
+            f"• التاريخ: {state['date']}  \n"
+            f"• الوقت: {state['time']}  \n"
+            f"• الموضوع: {state['topic']}  \n"
+            f"• الاسم: {state['student_name']}  \n"
+            f"• رمز المادة: {course}  \n\n"
             "هل تريد تأكيد الحجز؟ (نعم / لا)"
         )
     return (
         "Here is your booking summary:\n\n"
-        f"• Instructor: {state['instructor']}\n"
-        f"• Date: {state['date']}\n"
-        f"• Time: {state['time']}\n"
-        f"• Topic: {state['topic']}\n"
-        f"• Name: {state['student_name']}\n"
-        f"• Course code: {course}\n\n"
+        f"• Instructor: {state['instructor']}  \n"
+        f"• Date: {state['date']}  \n"
+        f"• Time: {state['time']}  \n"
+        f"• Topic: {state['topic']}  \n"
+        f"• Name: {state['student_name']}  \n"
+        f"• Course code: {course}  \n\n"
         "Shall I confirm this booking? (Yes / No)"
     )
 
